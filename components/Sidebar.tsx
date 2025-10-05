@@ -31,24 +31,33 @@ const NavItem: React.FC<{
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
-  const mainNavItems: { icon: React.ReactNode; label: Page }[] = [
-    { icon: <DashboardIcon />, label: 'Dashboard' },
-    { icon: <DesktopIcon />, label: 'PC Info' },
-    { icon: <LaptopIcon />, label: 'Laptop Info' },
-    { icon: <ServerIcon />, label: 'Server Info' },
+  const navSections = [
+    {
+      title: 'Main',
+      items: [
+        { icon: <DashboardIcon />, label: 'Dashboard' as Page },
+        { icon: <DesktopIcon />, label: 'PC Info' as Page },
+        { icon: <LaptopIcon />, label: 'Laptop Info' as Page },
+        { icon: <ServerIcon />, label: 'Server Info' as Page },
+      ],
+    },
+    {
+      title: 'Peripherals',
+      items: [
+        { icon: <MouseIcon />, label: 'Mouse Log' as Page },
+        { icon: <KeyboardIcon />, label: 'Keyboard Log' as Page },
+        { icon: <SSDIcon />, label: 'SSD Log' as Page },
+        { icon: <BoxIcon />, label: 'Product Inventory' as Page },
+      ],
+    },
+    {
+      title: 'Reports',
+      items: [
+        { icon: <ChartPieIcon />, label: 'Department Summary' as Page },
+      ],
+    },
   ];
 
-  const peripheralNavItems: { icon: React.ReactNode; label: Page }[] = [
-    { icon: <MouseIcon />, label: 'Mouse Log' },
-    { icon: <KeyboardIcon />, label: 'Keyboard Log' },
-    { icon: <SSDIcon />, label: 'SSD Log' },
-    { icon: <BoxIcon />, label: 'Product Inventory' },
-  ];
-
-  const reportNavItems: { icon: React.ReactNode; label: Page }[] = [
-     { icon: <ChartPieIcon />, label: 'Department Summary' },
-  ];
-  
   const settingsItem = { icon: <SettingsIcon />, label: 'Settings' as Page };
 
   return (
@@ -57,48 +66,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage })
             <h1 className="text-2xl font-bold text-white">IT Inventory</h1>
         </div>
         <nav className="flex-1 p-4 overflow-y-auto space-y-6">
-            <div>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Main</h2>
+            {navSections.map((section) => (
+              <div key={section.title}>
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">{section.title}</h2>
                 <ul>
-                    {mainNavItems.map(item => (
-                        <NavItem
-                            key={item.label}
-                            icon={item.icon}
-                            label={item.label}
-                            isActive={currentPage === item.label}
-                            onClick={() => setCurrentPage(item.label)}
-                        />
-                    ))}
+                  {section.items.map(item => (
+                    <NavItem
+                      key={item.label}
+                      icon={item.icon}
+                      label={item.label}
+                      isActive={currentPage === item.label}
+                      onClick={() => setCurrentPage(item.label)}
+                    />
+                  ))}
                 </ul>
-            </div>
-            <div>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Peripherals</h2>
-                <ul>
-                    {peripheralNavItems.map(item => (
-                        <NavItem
-                            key={item.label}
-                            icon={item.icon}
-                            label={item.label}
-                            isActive={currentPage === item.label}
-                            onClick={() => setCurrentPage(item.label)}
-                        />
-                    ))}
-                </ul>
-            </div>
-             <div>
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Reports</h2>
-                <ul>
-                    {reportNavItems.map(item => (
-                        <NavItem
-                            key={item.label}
-                            icon={item.icon}
-                            label={item.label}
-                            isActive={currentPage === item.label}
-                            onClick={() => setCurrentPage(item.label)}
-                        />
-                    ))}
-                </ul>
-            </div>
+              </div>
+            ))}
         </nav>
         <div className="p-4 border-t border-gray-700">
              <ul>
