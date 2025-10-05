@@ -13,7 +13,7 @@ const NavItem: React.FC<{
   isActive: boolean;
   onClick: () => void;
 }> = ({ icon, label, isActive, onClick }) => (
-  <li className="mb-2">
+  <li className="mb-1">
     <a
       href="#"
       onClick={(e) => {
@@ -31,40 +31,85 @@ const NavItem: React.FC<{
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
-  const navItems: { icon: React.ReactNode; label: Page }[] = [
+  const mainNavItems: { icon: React.ReactNode; label: Page }[] = [
     { icon: <DashboardIcon />, label: 'Dashboard' },
     { icon: <DesktopIcon />, label: 'PC Info' },
     { icon: <LaptopIcon />, label: 'Laptop Info' },
     { icon: <ServerIcon />, label: 'Server Info' },
+  ];
+
+  const peripheralNavItems: { icon: React.ReactNode; label: Page }[] = [
     { icon: <MouseIcon />, label: 'Mouse Log' },
     { icon: <KeyboardIcon />, label: 'Keyboard Log' },
     { icon: <SSDIcon />, label: 'SSD Log' },
-    { icon: <ChartPieIcon />, label: 'Department Summary' },
     { icon: <BoxIcon />, label: 'Product Inventory' },
-    { icon: <SettingsIcon />, label: 'Settings' },
   ];
 
+  const reportNavItems: { icon: React.ReactNode; label: Page }[] = [
+     { icon: <ChartPieIcon />, label: 'Department Summary' },
+  ];
+  
+  const settingsItem = { icon: <SettingsIcon />, label: 'Settings' as Page };
+
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-700">
-        <h2 className="text-2xl font-bold text-white">IT Inventory</h2>
-      </div>
-      <nav className="flex-1 p-4">
-        <ul>
-          {navItems.map((item) => (
-            <NavItem
-              key={item.label}
-              icon={item.icon}
-              label={item.label}
-              isActive={currentPage === item.label}
-              onClick={() => setCurrentPage(item.label)}
-            />
-          ))}
-        </ul>
-      </nav>
-      <div className="p-4 border-t border-gray-700 text-center text-gray-400 text-sm">
-        <p>&copy; 2024 Your Company</p>
-      </div>
+    <div className="flex flex-col h-full">
+        <div className="p-4 border-b border-gray-700 flex items-center justify-center">
+            <h1 className="text-2xl font-bold text-white">IT Inventory</h1>
+        </div>
+        <nav className="flex-1 p-4 overflow-y-auto space-y-6">
+            <div>
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Main</h2>
+                <ul>
+                    {mainNavItems.map(item => (
+                        <NavItem
+                            key={item.label}
+                            icon={item.icon}
+                            label={item.label}
+                            isActive={currentPage === item.label}
+                            onClick={() => setCurrentPage(item.label)}
+                        />
+                    ))}
+                </ul>
+            </div>
+            <div>
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Peripherals</h2>
+                <ul>
+                    {peripheralNavItems.map(item => (
+                        <NavItem
+                            key={item.label}
+                            icon={item.icon}
+                            label={item.label}
+                            isActive={currentPage === item.label}
+                            onClick={() => setCurrentPage(item.label)}
+                        />
+                    ))}
+                </ul>
+            </div>
+             <div>
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul>
+                    {reportNavItems.map(item => (
+                        <NavItem
+                            key={item.label}
+                            icon={item.icon}
+                            label={item.label}
+                            isActive={currentPage === item.label}
+                            onClick={() => setCurrentPage(item.label)}
+                        />
+                    ))}
+                </ul>
+            </div>
+        </nav>
+        <div className="p-4 border-t border-gray-700">
+             <ul>
+                 <NavItem
+                    icon={settingsItem.icon}
+                    label={settingsItem.label}
+                    isActive={currentPage === settingsItem.label}
+                    onClick={() => setCurrentPage(settingsItem.label)}
+                />
+            </ul>
+        </div>
     </div>
   );
 };
