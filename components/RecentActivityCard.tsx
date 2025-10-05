@@ -1,13 +1,14 @@
 import React from 'react';
-import { PeripheralLogEntry } from '../types';
+import { PeripheralLogEntry, Page } from '../types';
 import { ClockIcon } from './Icons';
 
 interface RecentActivityCardProps {
   title: string;
   logs: PeripheralLogEntry[];
+  setActivePage: (page: Page) => void;
 }
 
-export const RecentActivityCard: React.FC<RecentActivityCardProps> = ({ title, logs }) => {
+export const RecentActivityCard: React.FC<RecentActivityCardProps> = ({ title, logs, setActivePage }) => {
   return (
     <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 flex flex-col h-full">
       <h3 className="text-xl font-bold text-gray-800 mb-4">{title}</h3>
@@ -20,7 +21,12 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = ({ title, l
               </div>
               <div>
                 <p className="font-semibold text-gray-700 text-sm">{log.productName}</p>
-                <p className="text-gray-500 text-xs">{log.comment}</p>
+                <p className="text-gray-500 text-xs mt-0.5">{log.comment}</p>
+                {log.pcUsername && (
+                    <p className="text-gray-500 text-xs mt-0.5">
+                        Assigned to: <span className="font-semibold text-gray-600">{log.pcUsername}</span>
+                    </p>
+                )}
                 <p className="text-gray-400 text-xs mt-1">{log.date}</p>
               </div>
             </div>
@@ -29,7 +35,10 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = ({ title, l
           <p className="text-gray-500 text-center py-8">No recent activity.</p>
         )}
       </div>
-       <button className="mt-4 text-sm text-blue-600 hover:underline font-semibold self-start">
+       <button
+            onClick={() => setActivePage('Mouse Log')}
+            className="mt-4 text-sm text-blue-600 hover:underline font-semibold self-start"
+        >
             View All
         </button>
     </div>

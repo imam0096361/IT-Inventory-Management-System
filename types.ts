@@ -1,9 +1,11 @@
+export type Page = 'Dashboard' | 'PC Info' | 'Laptop Info' | 'Server Info' | 'Mouse Log' | 'Keyboard Log' | 'SSD Log' | 'Department Summary' | 'Product Inventory' | 'Settings';
+
 export interface PeripheralLogEntry {
   id: number;
   productName: string;
   serialNumber: string;
   pcName: string;
-  pcUsername: string;
+  pcUsername:string;
   department: string;
   date: string;
   time: string;
@@ -28,6 +30,7 @@ export interface ServerInfoEntry {
   storage: string;
   raid: string;
   status: 'Online' | 'Offline' | 'Maintenance';
+  customFields?: Record<string, string>;
 }
 
 export interface LaptopInfoEntry {
@@ -43,6 +46,7 @@ export interface LaptopInfoEntry {
   department: string;
   date: string;
   hardwareStatus: 'Good' | 'Battery Problem' | 'Platform Problem';
+  customFields?: Record<string, string>;
 }
 
 export interface PCInfoEntry {
@@ -58,6 +62,7 @@ export interface PCInfoEntry {
   os: string;
   status: 'OK' | 'NO' | 'Repair';
   floor: 5 | 6 | 7;
+  customFields?: Record<string, string>;
 }
 
 export interface PieChartData {
@@ -68,4 +73,9 @@ export interface PieChartData {
 export interface BarChartData {
   name: string;
   count: number;
+}
+
+export interface CustomFieldDef {
+  id: string;
+  name: string;
 }

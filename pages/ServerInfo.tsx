@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { serverInfoData } from '../data/dummyData';
-import { ServerInfoEntry } from '../types';
+import { ServerInfoEntry, CustomFieldDef } from '../types';
 import { Modal } from '../components/Modal';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { DownloadIcon } from '../components/Icons';
+import { DownloadIcon, ImportIcon } from '../components/Icons';
 import { exportToCSV } from '../utils/export';
+import { DetailModal } from '../components/DetailModal';
+import { useDebounce } from '../hooks/useDebounce';
+import { ImportModal } from '../components/ImportModal';
 
 const emptyFormState: Omit<ServerInfoEntry, 'id'> = {
     serverID: '',
@@ -17,15 +20,22 @@ const emptyFormState: Omit<ServerInfoEntry, 'id'> = {
     storage: '',
     raid: '',
     status: 'Online',
+    customFields: {},
 };
 
 export const ServerInfo: React.FC = () => {
     const [servers, setServers] = useLocalStorage<ServerInfoEntry[]>('serverInfo', serverInfoData);
+    const [serverCustomFields] = useLocalStorage<CustomFieldDef[]>('customFields_server', []);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingServer, setEditingServer] = useState<ServerInfoEntry | null>(null);
     const [formData, setFormData] = useState<Omit<ServerInfoEntry, 'id'>>(emptyFormState);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [brandFilter, setBrandFilter] = useState('All');
+    const [statusFilter, setStatusFilter] = useState('All');
     const [serverToDelete, setServerToDelete] = useState<ServerInfoEntry | null>(null);
+    const [viewingServer, setViewingServer] = useState<ServerInfoEntry | null>(null);
 
      useEffect(() => {
         if (editingServer) {
@@ -45,6 +55,10 @@ export const ServerInfo: React.FC = () => {
         setEditingServer(server);
         setFormData(server);
         setIsModalOpen(true);
+    };
+    
+    const handleViewDetails = (server: ServerInfoEntry) => {
+        setViewingServer(server);
     };
 
     const handleDeleteRequest = (server: ServerInfoEntry) => {
@@ -72,22 +86,79 @@ export const ServerInfo: React.FC = () => {
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
+         if (name.startsWith('custom_')) {
+            const fieldId = name.replace('custom_', '');
+            setFormData(prev => ({
+                ...prev,
+                customFields: {
+                    ...(prev.customFields || {}),
+                    [fieldId]: value
+                }
+            }));
+            return;
+        }
         const isNumber = type === 'number';
         setFormData(prev => ({ ...prev, [name]: isNumber ? Number(value) : value }));
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchQuery(e.target.value);
+        setSearchTerm(e.target.value);
     };
     
-    const filteredServers = servers.filter(server =>
-        server.serverID.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        server.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        server.model.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const brandOptions = useMemo(() => ['All', ...new Set(servers.map(s => s.brand))], [servers]);
+    const statusOptions: Array<'All' | ServerInfoEntry['status']> = ['All', 'Online', 'Offline', 'Maintenance'];
+    
+    const filteredServers = useMemo(() => {
+        const searchWords = debouncedSearchTerm.toLowerCase().split(' ').filter(word => word);
+
+        return servers.filter(server => {
+            const passesFilters = (brandFilter === 'All' || server.brand === brandFilter) &&
+                (statusFilter === 'All' || server.status === statusFilter);
+
+            if (!passesFilters) return false;
+
+            if (searchWords.length === 0) return true;
+
+            const searchableString = [
+                server.serverID,
+                server.brand,
+                server.model,
+                server.cpu,
+                server.ram,
+                server.storage,
+                server.raid,
+            ].join(' ').toLowerCase();
+
+            return searchWords.every(word => searchableString.includes(word));
+        });
+    }, [servers, debouncedSearchTerm, brandFilter, statusFilter]);
 
     const handleExport = () => {
         exportToCSV(filteredServers, 'server-info');
+    };
+
+    const handleImportServers = (data: Partial<ServerInfoEntry>[]): { success: boolean, message: string } => {
+        try {
+            const newServers: ServerInfoEntry[] = data.map((server, index) => {
+                if (!server.serverID || !server.brand) {
+                    throw new Error(`Row ${index + 1}: Missing required field (serverID, brand).`);
+                }
+                const status = server.status && ['Online', 'Offline', 'Maintenance'].includes(server.status) ? server.status : 'Online';
+                
+                return {
+                    ...emptyFormState,
+                    ...server,
+                    id: Date.now() + index,
+                    totalCores: server.totalCores ? Number(server.totalCores) : 0,
+                    status
+                };
+            });
+
+            setServers(prev => [...prev, ...newServers]);
+            return { success: true, message: `Successfully imported ${newServers.length} servers.` };
+        } catch (error: any) {
+            return { success: false, message: error.message || 'Failed to import servers.' };
+        }
     };
 
     const getStatusBadge = (status: 'Online' | 'Offline' | 'Maintenance') => {
@@ -106,11 +177,18 @@ export const ServerInfo: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-800">Server Information</h1>
                     <div className="flex flex-col sm:flex-row gap-2 self-start md:self-auto">
                         <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <ImportIcon />
+                            <span>Import</span>
+                        </button>
+                        <button
                             onClick={handleExport}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                         >
                             <DownloadIcon />
-                            <span>Export Data</span>
+                            <span>Export</span>
                         </button>
                         <button
                             onClick={handleAddNew}
@@ -121,13 +199,35 @@ export const ServerInfo: React.FC = () => {
                     </div>
                 </div>
                 <div className="mb-4">
-                    <input
-                        type="text"
-                        placeholder="Search by Server ID, brand, model..."
-                        value={searchQuery}
-                        onChange={handleSearchChange}
-                        className="w-full md:w-1/3 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input
+                            type="text"
+                            placeholder="Search by ID, brand, model..."
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                        />
+                        <select
+                            value={brandFilter}
+                            onChange={(e) => setBrandFilter(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        >
+                            <option value="All">All Brands</option>
+                            {brandOptions.filter(o => o !== 'All').map(option => (
+                                <option key={option} value={option}>{option}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        >
+                            <option value="All">All Statuses</option>
+                            {statusOptions.filter(o => o !== 'All').map(option => (
+                                <option key={option} value={option}>{option}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -142,7 +242,7 @@ export const ServerInfo: React.FC = () => {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredServers.map((server) => (
-                                <tr key={server.id} className="hover:bg-gray-50">
+                                <tr key={server.id} onClick={() => handleViewDetails(server)} className="hover:bg-gray-50 cursor-pointer">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{server.serverID}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{server.brand}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{server.ram}</td>
@@ -151,7 +251,7 @@ export const ServerInfo: React.FC = () => {
                                             {server.status}
                                         </span>
                                     </td>
-                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                         <button onClick={() => handleEdit(server)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
                                         <button onClick={() => handleDeleteRequest(server)} className="text-red-600 hover:text-red-900 ml-4">Delete</button>
                                     </td>
@@ -183,6 +283,32 @@ export const ServerInfo: React.FC = () => {
                         <option value="Maintenance">Maintenance</option>
                     </select>
                 </div>
+
+                {serverCustomFields.length > 0 && (
+                    <>
+                        <hr className="my-6" />
+                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Custom Fields</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {serverCustomFields.map(field => (
+                                <div key={field.id}>
+                                    <label htmlFor={`custom_${field.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                        {field.name}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id={`custom_${field.id}`}
+                                        name={`custom_${field.id}`}
+                                        value={formData.customFields?.[field.id] || ''}
+                                        onChange={handleChange}
+                                        placeholder={field.name}
+                                        className="p-2 border rounded w-full"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
                  <div className="mt-6 flex justify-end space-x-4">
                     <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
                     <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editingServer ? 'Save Changes' : 'Add Server'}</button>
@@ -195,6 +321,22 @@ export const ServerInfo: React.FC = () => {
                 onConfirm={handleConfirmDelete}
                 title="Confirm Server Deletion"
                 message={<p>Are you sure you want to delete the server entry for <span className="font-semibold">{serverToDelete?.serverID}</span>? This action cannot be undone.</p>}
+            />
+            
+            <ImportModal<Partial<ServerInfoEntry>>
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={handleImportServers}
+                assetName="Servers"
+                templateHeaders={['serverID', 'brand', 'model', 'cpu', 'totalCores', 'ram', 'storage', 'raid', 'status']}
+                exampleRow={['192.168.150.130', 'DELL', 'PowerEdge R740', 'Intel Xeon Gold', '32', '128 GB', '4TB x 4', 'RAID10', 'Online']}
+            />
+
+            <DetailModal 
+                isOpen={!!viewingServer} 
+                onClose={() => setViewingServer(null)} 
+                title={`${viewingServer?.serverID || 'Server'} Details`}
+                data={viewingServer} 
             />
         </>
     );

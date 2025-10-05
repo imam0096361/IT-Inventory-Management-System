@@ -1,13 +1,12 @@
-import React from 'react';
-import { PieChartCard } from '../components/PieChartCard';
+import React, { useMemo } from 'react';
+import { InventorySummaryCard } from '../components/InventorySummaryCard';
 import { BarChartCard } from '../components/BarChartCard';
 import { RecentActivityCard } from '../components/RecentActivityCard';
+import { StatusSummaryCard } from '../components/StatusSummaryCard';
 import { pcInfoData, laptopInfoData, serverInfoData, mouseDistributionLog, keyboardDistributionLog, ssdDistributionLog } from '../data/dummyData';
 import { DesktopIcon, LaptopIcon, ServerIcon, MouseIcon, KeyboardIcon, SSDIcon, ChartPieIcon } from '../components/Icons';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { PCInfoEntry, LaptopInfoEntry, ServerInfoEntry, PeripheralLogEntry } from '../types';
-
-type Page = 'Dashboard' | 'PC Info' | 'Laptop Info' | 'Server Info' | 'Mouse Log' | 'Keyboard Log' | 'SSD Log' | 'Department Summary';
+import { Page, PCInfoEntry, LaptopInfoEntry, ServerInfoEntry, PeripheralLogEntry } from '../types';
 
 interface DashboardProps {
     setActivePage: (page: Page) => void;
@@ -74,6 +73,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActivePage }) => {
         .sort((a, b) => b.id - a.id)
         .slice(0, 5);
 
+    const { pcStatuses, laptopStatuses, serverStatuses } = useMemo(() => {
+        const pcStatusCounts = pcs.reduce((acc, pc) => {
+            acc[pc.status] = (acc[pc.status] || 0) + 1;
+            return acc;
+        }, {} as Record<PCInfoEntry['status'], number>);
+
+        const pcStatuses = [
+            { name: 'OK', count: pcStatusCounts.OK || 0, color: 'bg-green-500' },
+            { name: 'Repair', count: pcStatusCounts.Repair || 0, color: 'bg-yellow-500' },
+            { name: 'NO', count: pcStatusCounts.NO || 0, color: 'bg-red-500' },
+        ];
+
+        const laptopStatusCounts = laptops.reduce((acc, laptop) => {
+            acc[laptop.hardwareStatus] = (acc[laptop.hardwareStatus] || 0) + 1;
+            return acc;
+        }, {} as Record<LaptopInfoEntry['hardwareStatus'], number>);
+
+        const laptopStatuses = [
+            { name: 'Good', count: laptopStatusCounts.Good || 0, color: 'bg-green-500' },
+            { name: 'Battery Problem', count: laptopStatusCounts['Battery Problem'] || 0, color: 'bg-yellow-500' },
+            { name: 'Platform Problem', count: laptopStatusCounts['Platform Problem'] || 0, color: 'bg-red-500' },
+        ];
+
+        const serverStatusCounts = servers.reduce((acc, server) => {
+            acc[server.status] = (acc[server.status] || 0) + 1;
+            return acc;
+        }, {} as Record<ServerInfoEntry['status'], number>);
+
+        const serverStatuses = [
+            { name: 'Online', count: serverStatusCounts.Online || 0, color: 'bg-green-500' },
+            { name: 'Maintenance', count: serverStatusCounts.Maintenance || 0, color: 'bg-yellow-500' },
+            { name: 'Offline', count: serverStatusCounts.Offline || 0, color: 'bg-red-500' },
+        ];
+
+        return { pcStatuses, laptopStatuses, serverStatuses };
+    }, [pcs, laptops, servers]);
+
+
     return (
         <div className="space-y-8">
             <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
@@ -84,16 +121,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActivePage }) => {
                     <div className="lg:col-span-2">
                         <BarChartCard title="Total Assets by Category" data={totalAssetsData} barColor="#3b82f6" />
                     </div>
-                    <RecentActivityCard title="Recent Service Logs" logs={recentLogs} />
+                    <RecentActivityCard title="Recent Service Logs" logs={recentLogs} setActivePage={setActivePage} />
                 </div>
             </section>
             
             <section>
+                <h2 className="text-2xl font-semibold text-gray-700 mb-4">Asset Status Overview</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <StatusSummaryCard
+                        title="PC Status"
+                        icon={<DesktopIcon />}
+                        total={pcs.length}
+                        statuses={pcStatuses}
+                    />
+                    <StatusSummaryCard
+                        title="Laptop Status"
+                        icon={<LaptopIcon />}
+                        total={laptops.length}
+                        statuses={laptopStatuses}
+                    />
+                    <StatusSummaryCard
+                        title="Server Status"
+                        icon={<ServerIcon />}
+                        total={servers.length}
+                        statuses={serverStatuses}
+                    />
+                </div>
+            </section>
+
+            <section>
                 <h2 className="text-2xl font-semibold text-gray-700 mb-4">Peripheral Usage</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <PieChartCard title="MOUSE" data={peripheralUsageStats.mouse} />
-                    <PieChartCard title="KEYBOARD" data={peripheralUsageStats.keyboard} />
-                    <PieChartCard title="SSD" data={peripheralUsageStats.ssd} />
+                    <InventorySummaryCard title="Mouse Inventory" data={peripheralUsageStats.mouse} icon={<MouseIcon />} />
+                    <InventorySummaryCard title="Keyboard Inventory" data={peripheralUsageStats.keyboard} icon={<KeyboardIcon />} />
+                    <InventorySummaryCard title="SSD Inventory" data={peripheralUsageStats.ssd} icon={<SSDIcon />} />
                 </div>
             </section>
 

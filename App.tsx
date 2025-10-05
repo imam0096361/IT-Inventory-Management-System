@@ -9,8 +9,9 @@ import { KeyboardLog } from './pages/KeyboardLog';
 import { SSDLog } from './pages/SSDLog';
 import { DepartmentSummary } from './pages/DepartmentSummary';
 import { MenuIcon, XIcon } from './components/Icons';
-
-type Page = 'Dashboard' | 'PC Info' | 'Laptop Info' | 'Server Info' | 'Mouse Log' | 'Keyboard Log' | 'SSD Log' | 'Department Summary';
+import { Settings } from './pages/Settings';
+import { ProductInventory } from './pages/ProductInventory';
+import { Page } from './types';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('Dashboard');
@@ -34,6 +35,10 @@ const App: React.FC = () => {
         return <SSDLog />;
       case 'Department Summary':
         return <DepartmentSummary />;
+      case 'Product Inventory':
+        return <ProductInventory />;
+      case 'Settings':
+        return <Settings />;
       default:
         return <Dashboard setActivePage={setCurrentPage} />;
     }

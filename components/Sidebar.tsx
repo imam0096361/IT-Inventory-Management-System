@@ -1,7 +1,6 @@
 import React from 'react';
-import { DashboardIcon, DesktopIcon, LaptopIcon, ServerIcon, MouseIcon, KeyboardIcon, SSDIcon, ChartPieIcon } from './Icons';
-
-type Page = 'Dashboard' | 'PC Info' | 'Laptop Info' | 'Server Info' | 'Mouse Log' | 'Keyboard Log' | 'SSD Log' | 'Department Summary';
+import { DashboardIcon, DesktopIcon, LaptopIcon, ServerIcon, MouseIcon, KeyboardIcon, SSDIcon, ChartPieIcon, SettingsIcon, BoxIcon } from './Icons';
+import { Page } from '../types';
 
 interface SidebarProps {
   currentPage: Page;
@@ -41,6 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage })
     { icon: <KeyboardIcon />, label: 'Keyboard Log' },
     { icon: <SSDIcon />, label: 'SSD Log' },
     { icon: <ChartPieIcon />, label: 'Department Summary' },
+    { icon: <BoxIcon />, label: 'Product Inventory' },
+    { icon: <SettingsIcon />, label: 'Settings' },
   ];
 
   return (

@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { laptopInfoData } from '../data/dummyData';
-import { LaptopInfoEntry } from '../types';
+import { LaptopInfoEntry, CustomFieldDef } from '../types';
 import { Modal } from '../components/Modal';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import useLocalStorage from '../hooks/useLocalStorage';
-import { DownloadIcon } from '../components/Icons';
+import { DownloadIcon, ImportIcon } from '../components/Icons';
 import { exportToCSV } from '../utils/export';
+import { DetailModal } from '../components/DetailModal';
+import { useDebounce } from '../hooks/useDebounce';
+import { ImportModal } from '../components/ImportModal';
 
 const emptyFormState: Omit<LaptopInfoEntry, 'id'> = {
     pcName: '',
@@ -19,15 +22,28 @@ const emptyFormState: Omit<LaptopInfoEntry, 'id'> = {
     department: '',
     date: '',
     hardwareStatus: 'Good',
+    customFields: {},
 };
 
 export const LaptopInfo: React.FC = () => {
     const [laptops, setLaptops] = useLocalStorage<LaptopInfoEntry[]>('laptopInfo', laptopInfoData);
+    const [laptopCustomFields] = useLocalStorage<CustomFieldDef[]>('customFields_laptop', []);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingLaptop, setEditingLaptop] = useState<LaptopInfoEntry | null>(null);
     const [formData, setFormData] = useState<Omit<LaptopInfoEntry, 'id'>>(emptyFormState);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [ramFilter, setRamFilter] = useState('All');
+    const [storageFilter, setStorageFilter] = useState('All');
+    const [brandFilter, setBrandFilter] = useState('All');
     const [laptopToDelete, setLaptopToDelete] = useState<LaptopInfoEntry | null>(null);
+    const [selectedLaptopIds, setSelectedLaptopIds] = useState<number[]>([]);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [statusTypeToUpdate, setStatusTypeToUpdate] = useState<'hardwareStatus' | 'userStatus'>('hardwareStatus');
+    const [newStatusValue, setNewStatusValue] = useState<LaptopInfoEntry['hardwareStatus'] | string>('Good');
+    const [viewingLaptop, setViewingLaptop] = useState<LaptopInfoEntry | null>(null);
 
     useEffect(() => {
         if (editingLaptop) {
@@ -36,6 +52,14 @@ export const LaptopInfo: React.FC = () => {
             setFormData(emptyFormState);
         }
     }, [editingLaptop]);
+    
+    useEffect(() => {
+        setSelectedLaptopIds([]);
+    }, [debouncedSearchTerm, ramFilter, storageFilter, brandFilter]);
+
+    const ramOptions = useMemo(() => ['All', ...new Set(laptops.map(laptop => laptop.ram))], [laptops]);
+    const storageOptions = useMemo(() => ['All', ...new Set(laptops.map(laptop => laptop.storage))], [laptops]);
+    const brandOptions = useMemo(() => ['All', ...new Set(laptops.map(laptop => laptop.brand))], [laptops]);
     
     const handleAddNew = () => {
         setEditingLaptop(null);
@@ -47,6 +71,10 @@ export const LaptopInfo: React.FC = () => {
         setEditingLaptop(laptop);
         setFormData(laptop);
         setIsModalOpen(true);
+    };
+    
+    const handleViewDetails = (laptop: LaptopInfoEntry) => {
+        setViewingLaptop(laptop);
     };
 
     const handleDeleteRequest = (laptop: LaptopInfoEntry) => {
@@ -63,7 +91,6 @@ export const LaptopInfo: React.FC = () => {
         setLaptopToDelete(null);
     };
 
-
     const handleSave = () => {
         if (editingLaptop) {
             setLaptops(laptops.map(laptop => (laptop.id === editingLaptop.id ? { ...formData, id: editingLaptop.id } : laptop)));
@@ -75,22 +102,114 @@ export const LaptopInfo: React.FC = () => {
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        if (name.startsWith('custom_')) {
+            const fieldId = name.replace('custom_', '');
+            setFormData(prev => ({
+                ...prev,
+                customFields: {
+                    ...(prev.customFields || {}),
+                    [fieldId]: value
+                }
+            }));
+            return;
+        }
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchQuery(e.target.value);
+        setSearchTerm(e.target.value);
     };
     
-    const filteredLaptops = laptops.filter(laptop =>
-        laptop.pcName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        laptop.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        laptop.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        laptop.serialNumber.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredLaptops = useMemo(() => {
+        const searchWords = debouncedSearchTerm.toLowerCase().split(' ').filter(word => word);
+
+        return laptops.filter(laptop => {
+            const passesFilters = (ramFilter === 'All' || laptop.ram === ramFilter) &&
+                (storageFilter === 'All' || laptop.storage === storageFilter) &&
+                (brandFilter === 'All' || laptop.brand === brandFilter);
+
+            if (!passesFilters) return false;
+
+            if (searchWords.length === 0) return true;
+
+            const searchableString = [
+                laptop.pcName,
+                laptop.brand,
+                laptop.model,
+                laptop.cpu,
+                laptop.serialNumber,
+                laptop.department
+            ].join(' ').toLowerCase();
+
+            return searchWords.every(word => searchableString.includes(word));
+        });
+    }, [laptops, debouncedSearchTerm, ramFilter, storageFilter, brandFilter]);
         
     const handleExport = () => {
         exportToCSV(filteredLaptops, 'laptop-info');
+    };
+    
+    const handleImportLaptops = (data: Partial<LaptopInfoEntry>[]): { success: boolean, message: string } => {
+        try {
+            const newLaptops: LaptopInfoEntry[] = data.map((laptop, index) => {
+                if (!laptop.pcName || !laptop.brand || !laptop.serialNumber) {
+                    throw new Error(`Row ${index + 1}: Missing required field (pcName, brand, serialNumber).`);
+                }
+                 const hardwareStatus = laptop.hardwareStatus && ['Good', 'Battery Problem', 'Platform Problem'].includes(laptop.hardwareStatus) ? laptop.hardwareStatus : 'Good';
+
+                return {
+                    ...emptyFormState,
+                    ...laptop,
+                    id: Date.now() + index,
+                    hardwareStatus
+                };
+            });
+            
+            setLaptops(prev => [...prev, ...newLaptops]);
+
+            return { success: true, message: `Successfully imported ${newLaptops.length} laptops.` };
+        } catch (error: any) {
+            return { success: false, message: error.message || 'Failed to import laptops.' };
+        }
+    };
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedLaptopIds(filteredLaptops.map(laptop => laptop.id));
+        } else {
+            setSelectedLaptopIds([]);
+        }
+    };
+
+    const handleSelectOne = (id: number) => {
+        setSelectedLaptopIds(prev =>
+            prev.includes(id) ? prev.filter(laptopId => laptopId !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkDeleteRequest = () => {
+        setIsBulkDeleteModalOpen(true);
+    };
+
+    const handleConfirmBulkDelete = () => {
+        setLaptops(prevLaptops => prevLaptops.filter(laptop => !selectedLaptopIds.includes(laptop.id)));
+        setSelectedLaptopIds([]);
+        setIsBulkDeleteModalOpen(false);
+    };
+
+    const handleConfirmStatusUpdate = () => {
+        setLaptops(prevLaptops =>
+            prevLaptops.map(laptop => {
+                if (selectedLaptopIds.includes(laptop.id)) {
+                    return { ...laptop, [statusTypeToUpdate]: newStatusValue };
+                }
+                return laptop;
+            })
+        );
+        setSelectedLaptopIds([]);
+        setIsStatusModalOpen(false);
+        setStatusTypeToUpdate('hardwareStatus');
+        setNewStatusValue('Good');
     };
 
     const getStatusBadge = (status: 'Good' | 'Battery Problem' | 'Platform Problem') => {
@@ -109,11 +228,18 @@ export const LaptopInfo: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-800">Laptop Information</h1>
                     <div className="flex flex-col sm:flex-row gap-2 self-start md:self-auto">
                         <button
+                            onClick={() => setIsImportModalOpen(true)}
+                            className="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <ImportIcon />
+                            <span>Import</span>
+                        </button>
+                        <button
                             onClick={handleExport}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                         >
                             <DownloadIcon />
-                            <span>Export Data</span>
+                            <span>Export</span>
                         </button>
                         <button
                             onClick={handleAddNew}
@@ -124,18 +250,82 @@ export const LaptopInfo: React.FC = () => {
                     </div>
                 </div>
                  <div className="mb-4">
-                    <input
-                        type="text"
-                        placeholder="Search by name, brand, department..."
-                        value={searchQuery}
-                        onChange={handleSearchChange}
-                        className="w-full md:w-1/3 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input
+                            type="text"
+                            placeholder="Search by name, brand, department..."
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
+                        />
+                        <select
+                            value={ramFilter}
+                            onChange={(e) => setRamFilter(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        >
+                             <option value="All">All RAM</option>
+                             {ramOptions.filter(o => o !== 'All').map(option => (
+                                <option key={option} value={option}>{option}</option>
+                             ))}
+                        </select>
+                        <select
+                            value={storageFilter}
+                            onChange={(e) => setStorageFilter(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        >
+                            <option value="All">All Storage</option>
+                            {storageOptions.filter(o => o !== 'All').map(option => (
+                                <option key={option} value={option}>{option}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={brandFilter}
+                            onChange={(e) => setBrandFilter(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        >
+                             <option value="All">All Brands</option>
+                             {brandOptions.filter(o => o !== 'All').map(option => (
+                                <option key={option} value={option}>{option}</option>
+                             ))}
+                        </select>
+                    </div>
                 </div>
+
+                {selectedLaptopIds.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 my-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-blue-800">
+                            {selectedLaptopIds.length} item(s) selected
+                        </p>
+                        <div className="flex gap-2 flex-wrap">
+                            <button
+                                onClick={() => setIsStatusModalOpen(true)}
+                                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 font-semibold"
+                            >
+                                Update Status
+                            </button>
+                            <button
+                                onClick={handleBulkDeleteRequest}
+                                className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 font-semibold"
+                            >
+                                Delete Selected
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th className="px-6 py-3">
+                                    <input
+                                        type="checkbox"
+                                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        onChange={handleSelectAll}
+                                        checked={filteredLaptops.length > 0 && selectedLaptopIds.length === filteredLaptops.length}
+                                        aria-label="Select all laptops on this page"
+                                    />
+                                </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PC Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
@@ -145,7 +335,16 @@ export const LaptopInfo: React.FC = () => {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredLaptops.map((laptop) => (
-                                <tr key={laptop.id} className="hover:bg-gray-50">
+                                <tr key={laptop.id} onClick={() => handleViewDetails(laptop)} className={`hover:bg-gray-50 cursor-pointer ${selectedLaptopIds.includes(laptop.id) ? 'bg-blue-50' : ''}`}>
+                                     <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                            checked={selectedLaptopIds.includes(laptop.id)}
+                                            onChange={() => handleSelectOne(laptop.id)}
+                                            aria-label={`Select laptop ${laptop.pcName}`}
+                                        />
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{laptop.pcName}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{laptop.brand}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{laptop.department}</td>
@@ -154,7 +353,7 @@ export const LaptopInfo: React.FC = () => {
                                             {laptop.hardwareStatus}
                                         </span>
                                     </td>
-                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                         <button onClick={() => handleEdit(laptop)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
                                         <button onClick={() => handleDeleteRequest(laptop)} className="text-red-600 hover:text-red-900 ml-4">Delete</button>
                                     </td>
@@ -164,7 +363,7 @@ export const LaptopInfo: React.FC = () => {
                     </table>
                      {filteredLaptops.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
-                            No laptops found matching your search.
+                            No laptops found matching your criteria.
                         </div>
                     )}
                 </div>
@@ -188,6 +387,32 @@ export const LaptopInfo: React.FC = () => {
                         <option value="Platform Problem">Platform Problem</option>
                     </select>
                 </div>
+
+                {laptopCustomFields.length > 0 && (
+                    <>
+                        <hr className="my-6" />
+                        <h3 className="text-lg font-semibold text-gray-700 mb-4">Custom Fields</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {laptopCustomFields.map(field => (
+                                <div key={field.id}>
+                                    <label htmlFor={`custom_${field.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                        {field.name}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id={`custom_${field.id}`}
+                                        name={`custom_${field.id}`}
+                                        value={formData.customFields?.[field.id] || ''}
+                                        onChange={handleChange}
+                                        placeholder={field.name}
+                                        className="p-2 border rounded w-full"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
                  <div className="mt-6 flex justify-end space-x-4">
                     <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
                     <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">{editingLaptop ? 'Save Changes' : 'Add Laptop'}</button>
@@ -200,6 +425,84 @@ export const LaptopInfo: React.FC = () => {
                 onConfirm={handleConfirmDelete}
                 title="Confirm Laptop Deletion"
                 message={<p>Are you sure you want to delete the laptop entry for <span className="font-semibold">{laptopToDelete?.pcName}</span>? This action cannot be undone.</p>}
+            />
+
+            <ConfirmationModal
+                isOpen={isBulkDeleteModalOpen}
+                onClose={() => setIsBulkDeleteModalOpen(false)}
+                onConfirm={handleConfirmBulkDelete}
+                title="Confirm Bulk Deletion"
+                message={<p>Are you sure you want to delete the selected <span className="font-semibold">{selectedLaptopIds.length}</span> laptop entries? This action cannot be undone.</p>}
+            />
+
+            <Modal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} title={`Update Status for ${selectedLaptopIds.length} Laptop(s)`}>
+                <div className="space-y-4">
+                    <div>
+                        <label htmlFor="status-type-select" className="block text-sm font-medium text-gray-700 mb-2">
+                            Status Type to Update:
+                        </label>
+                        <select
+                            id="status-type-select"
+                            value={statusTypeToUpdate}
+                            onChange={(e) => {
+                                const newType = e.target.value as 'hardwareStatus' | 'userStatus';
+                                setStatusTypeToUpdate(newType);
+                                setNewStatusValue(newType === 'hardwareStatus' ? 'Good' : '');
+                            }}
+                            className="p-2 border rounded w-full bg-white"
+                        >
+                            <option value="hardwareStatus">Hardware Status</option>
+                            <option value="userStatus">User Status</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="bulk-status-value" className="block text-sm font-medium text-gray-700 mb-2">
+                            New Status:
+                        </label>
+                        {statusTypeToUpdate === 'hardwareStatus' ? (
+                            <select
+                                id="bulk-status-value"
+                                value={newStatusValue}
+                                onChange={(e) => setNewStatusValue(e.target.value)}
+                                className="p-2 border rounded w-full bg-white"
+                            >
+                                <option value="Good">Good</option>
+                                <option value="Battery Problem">Battery Problem</option>
+                                <option value="Platform Problem">Platform Problem</option>
+                            </select>
+                        ) : (
+                            <input
+                                id="bulk-status-value"
+                                type="text"
+                                value={newStatusValue}
+                                onChange={(e) => setNewStatusValue(e.target.value)}
+                                placeholder="Enter user status"
+                                className="p-2 border rounded w-full"
+                            />
+                        )}
+                    </div>
+                </div>
+                <div className="mt-6 flex justify-end space-x-4">
+                    <button onClick={() => setIsStatusModalOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button onClick={handleConfirmStatusUpdate} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Update Status</button>
+                </div>
+            </Modal>
+            
+            <ImportModal<Partial<LaptopInfoEntry>>
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={handleImportLaptops}
+                assetName="Laptops"
+                templateHeaders={['pcName', 'brand', 'model', 'cpu', 'serialNumber', 'ram', 'storage', 'userStatus', 'department', 'date', 'hardwareStatus']}
+                exampleRow={['LT-HR-05', 'HP', 'Elitebook 840', 'Core i7-11th Gen', 'SN12345XYZ', '16 GB', '512 GB SSD', 'GOOD', 'HR', '2023-10-26', 'Good']}
+            />
+            
+            <DetailModal 
+                isOpen={!!viewingLaptop} 
+                onClose={() => setViewingLaptop(null)} 
+                title={`${viewingLaptop?.pcName || 'Laptop'} Details`}
+                data={viewingLaptop} 
             />
         </>
     );
