@@ -68,6 +68,8 @@ export interface PCInfoEntry {
 export interface PieChartData {
   name: string;
   value: number;
+  // FIX: Added index signature to satisfy recharts' type requirements for Pie chart data.
+  [key: string]: any;
 }
 
 export interface BarChartData {
