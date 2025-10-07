@@ -63,7 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage })
   return (
     <div className="flex flex-col h-full">
         <div className="p-4 border-b border-gray-700 flex items-center justify-center">
-            <h1 className="text-2xl font-bold text-white">IT Inventory</h1>
+            <h1 className="text-2xl font-bold text-white">TDS IT Inventory</h1>
         </div>
         <nav className="flex-1 p-4 overflow-y-auto space-y-6">
             {navSections.map((section) => (
@@ -92,6 +92,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage })
                     onClick={() => setCurrentPage(settingsItem.label)}
                 />
             </ul>
+        </div>
+        <div className="pb-4 px-4 text-center text-xs text-gray-500">
+          <p>Developed by</p>
+          <p className="font-semibold text-gray-400">Imam Chowdhury</p>
         </div>
     </div>
   );

@@ -1,12 +1,26 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { PCInfoEntry, LaptopInfoEntry, ServerInfoEntry } from '../types';
 import { pcInfoData, laptopInfoData, serverInfoData } from '../data/dummyData';
+import { BarChartCard } from '../components/BarChartCard';
+import { DownloadIcon } from '../components/Icons';
+import { exportToCSV } from '../utils/export';
+import { useSort } from '../hooks/useSort';
+import { SortableHeader } from '../components/SortableHeader';
+
+interface DepartmentCounts {
+  pcs: number;
+  laptops: number;
+  servers: number;
+  total: number;
+}
 
 interface DepartmentSummaryRow {
-  id: number;
   department: string;
-  quantity: number;
+  pcs: number;
+  laptops: number;
+  servers: number;
+  total: number;
 }
 
 export const DepartmentSummary: React.FC = () => {
@@ -14,65 +28,111 @@ export const DepartmentSummary: React.FC = () => {
     const [laptops] = useLocalStorage<LaptopInfoEntry[]>('laptopInfo', laptopInfoData);
     const [servers] = useLocalStorage<ServerInfoEntry[]>('serverInfo', serverInfoData);
 
-    const departmentCounts: { [key: string]: number } = {};
+    const departmentAssetCounts = useMemo<DepartmentSummaryRow[]>(() => {
+        const counts: Record<string, DepartmentCounts> = {};
 
-    const allAssets = [...pcs, ...laptops, ...servers];
+        const addToDept = (dept: string, type: 'pcs' | 'laptops' | 'servers') => {
+            if (!dept || dept.trim() === '') return;
+            if (!counts[dept]) {
+                counts[dept] = { pcs: 0, laptops: 0, servers: 0, total: 0 };
+            }
+            counts[dept][type]++;
+            counts[dept].total++;
+        };
 
-    allAssets.forEach(asset => {
-        // Fix: Use a type guard to ensure asset has a 'department' property, as ServerInfoEntry does not.
-        if ('department' in asset && asset.department && asset.department.trim() !== '') {
-            departmentCounts[asset.department] = (departmentCounts[asset.department] || 0) + 1;
-        }
-    });
+        pcs.forEach(pc => addToDept(pc.department, 'pcs'));
+        laptops.forEach(laptop => addToDept(laptop.department, 'laptops'));
+        servers.forEach(server => addToDept(server.department || 'Unassigned', 'servers'));
 
-    const summaryData: DepartmentSummaryRow[] = Object.entries(departmentCounts)
-        .map(([department, quantity], index) => ({
-            id: index + 1,
+        return Object.entries(counts).map(([department, data]) => ({
             department,
-            quantity,
-        }))
-        .sort((a, b) => a.department.localeCompare(b.department));
+            ...data,
+        }));
+    }, [pcs, laptops, servers]);
 
-    const totalQuantity = summaryData.reduce((sum, item) => sum + item.quantity, 0);
+    const { sortedItems: sortedSummaryData, requestSort, sortConfig } = useSort<DepartmentSummaryRow>(departmentAssetCounts, { key: 'total', direction: 'descending' });
+
+    const chartData = useMemo(() => {
+        return departmentAssetCounts
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 10)
+            .map(d => ({ name: d.department, count: d.total }));
+    }, [departmentAssetCounts]);
+
+    const totals = useMemo(() => {
+        return sortedSummaryData.reduce((acc, item) => {
+            acc.pcs += item.pcs;
+            acc.laptops += item.laptops;
+            acc.servers += item.servers;
+            acc.total += item.total;
+            return acc;
+        }, { pcs: 0, laptops: 0, servers: 0, total: 0 });
+    }, [sortedSummaryData]);
+
+    const handleExport = () => {
+        exportToCSV(sortedSummaryData, 'department_asset_report');
+    };
 
     return (
-        <div className="bg-white p-6 rounded-xl shadow-lg max-w-2xl mx-auto">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">Department Asset Summary</h1>
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Sl.
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Department
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Quantity
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {summaryData.map((item, index) => (
-                            <tr key={item.department} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.department}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{item.quantity}</td>
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <h1 className="text-3xl font-bold text-gray-800">Department Asset Report</h1>
+                <button
+                    onClick={handleExport}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2 self-start md:self-auto"
+                >
+                    <DownloadIcon />
+                    <span>Export to CSV</span>
+                </button>
+            </div>
+            
+            <BarChartCard title="Top 10 Departments by Asset Count" data={chartData} barColor="#10b981" />
+
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Detailed Breakdown</h2>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <SortableHeader<DepartmentSummaryRow> label="Department" sortKey="department" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<DepartmentSummaryRow> label="PCs" sortKey="pcs" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                                <SortableHeader<DepartmentSummaryRow> label="Laptops" sortKey="laptops" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                                <SortableHeader<DepartmentSummaryRow> label="Servers" sortKey="servers" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                                <SortableHeader<DepartmentSummaryRow> label="Total Assets" sortKey="total" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
                             </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-gray-100">
-                        <tr>
-                            <td colSpan={2} className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 uppercase text-right">
-                                Total
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 text-right">
-                                {totalQuantity}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {sortedSummaryData.map((item) => (
+                                <tr key={item.department} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.department}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{item.pcs}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{item.laptops}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{item.servers}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 font-bold text-right">{item.total}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot className="bg-gray-100">
+                            <tr>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 uppercase text-left">
+                                    Grand Total
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 text-right">
+                                    {totals.pcs}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 text-right">
+                                    {totals.laptops}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 text-right">
+                                    {totals.servers}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800 text-right">
+                                    {totals.total}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
         </div>
     );

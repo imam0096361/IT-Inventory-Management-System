@@ -9,6 +9,8 @@ import { exportToCSV } from '../utils/export';
 import { DetailModal } from '../components/DetailModal';
 import { useDebounce } from '../hooks/useDebounce';
 import { ImportModal } from '../components/ImportModal';
+import { useSort } from '../hooks/useSort';
+import { SortableHeader } from '../components/SortableHeader';
 
 const emptyFormState: Omit<LaptopInfoEntry, 'id'> = {
     pcName: '',
@@ -144,9 +146,11 @@ export const LaptopInfo: React.FC = () => {
             return searchWords.every(word => searchableString.includes(word));
         });
     }, [laptops, debouncedSearchTerm, ramFilter, storageFilter, brandFilter]);
+    
+    const { sortedItems: sortedLaptops, requestSort, sortConfig } = useSort<LaptopInfoEntry>(filteredLaptops, { key: 'pcName', direction: 'ascending' });
         
     const handleExport = () => {
-        exportToCSV(filteredLaptops, 'laptop-info');
+        exportToCSV(sortedLaptops, 'laptop-info');
     };
     
     const handleImportLaptops = (data: Partial<LaptopInfoEntry>[]): { success: boolean, message: string } => {
@@ -175,7 +179,7 @@ export const LaptopInfo: React.FC = () => {
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedLaptopIds(filteredLaptops.map(laptop => laptop.id));
+            setSelectedLaptopIds(sortedLaptops.map(laptop => laptop.id));
         } else {
             setSelectedLaptopIds([]);
         }
@@ -322,19 +326,19 @@ export const LaptopInfo: React.FC = () => {
                                         type="checkbox"
                                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                         onChange={handleSelectAll}
-                                        checked={filteredLaptops.length > 0 && selectedLaptopIds.length === filteredLaptops.length}
+                                        checked={sortedLaptops.length > 0 && selectedLaptopIds.length === sortedLaptops.length}
                                         aria-label="Select all laptops on this page"
                                     />
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PC Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hardware Status</th>
+                                <SortableHeader<LaptopInfoEntry> label="PC Name" sortKey="pcName" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<LaptopInfoEntry> label="Brand" sortKey="brand" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<LaptopInfoEntry> label="Department" sortKey="department" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<LaptopInfoEntry> label="Hardware Status" sortKey="hardwareStatus" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredLaptops.map((laptop) => (
+                            {sortedLaptops.map((laptop) => (
                                 <tr key={laptop.id} onClick={() => handleViewDetails(laptop)} className={`hover:bg-gray-50 cursor-pointer ${selectedLaptopIds.includes(laptop.id) ? 'bg-blue-50' : ''}`}>
                                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                         <input
@@ -361,7 +365,7 @@ export const LaptopInfo: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
-                     {filteredLaptops.length === 0 && (
+                     {sortedLaptops.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                             No laptops found matching your criteria.
                         </div>

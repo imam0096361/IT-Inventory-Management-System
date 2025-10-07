@@ -5,6 +5,8 @@ import { PeripheralLogEntry } from '../types';
 import { Modal } from '../components/Modal';
 import { BoxIcon, ImportIcon } from '../components/Icons';
 import { ImportModal } from '../components/ImportModal';
+import { useSort } from '../hooks/useSort';
+import { SortableHeader } from '../components/SortableHeader';
 
 type Category = 'Mouse' | 'Keyboard' | 'SSD';
 
@@ -64,8 +66,10 @@ export const ProductInventory: React.FC = () => {
                 used,
                 available: total - used,
             };
-        }).sort((a,b) => a.name.localeCompare(b.name));
+        });
     }, [mouseLogs, keyboardLogs, ssdLogs]);
+
+    const { sortedItems: sortedSummaries, requestSort, sortConfig } = useSort<ProductSummary>(productSummaries, { key: 'name', direction: 'ascending' });
     
     const handleAddStockClick = () => {
         setStockFormData(emptyStockForm);
@@ -209,15 +213,15 @@ export const ProductInventory: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Used</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
+                                <SortableHeader<ProductSummary> label="Product Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<ProductSummary> label="Category" sortKey="category" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<ProductSummary> label="Total" sortKey="total" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
+                                <SortableHeader<ProductSummary> label="Used" sortKey="used" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
+                                <SortableHeader<ProductSummary> label="Available" sortKey="available" sortConfig={sortConfig} requestSort={requestSort} className="text-center" />
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {productSummaries.map((product) => (
+                            {sortedSummaries.map((product) => (
                                 <tr key={product.name} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -232,7 +236,7 @@ export const ProductInventory: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
-                    {productSummaries.length === 0 && (
+                    {sortedSummaries.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                             No peripheral products found. Add some stock to get started.
                         </div>

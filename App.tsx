@@ -59,7 +59,7 @@ const App: React.FC = () => {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="flex justify-between items-center p-4 bg-white border-b border-gray-200 md:hidden">
-          <h1 className="text-xl font-semibold text-gray-800">IT Inventory</h1>
+          <h1 className="text-xl font-semibold text-gray-800">TDS IT Inventory</h1>
           <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="text-gray-500 focus:outline-none focus:text-gray-700">
             {isSidebarOpen ? <XIcon /> : <MenuIcon />}
           </button>

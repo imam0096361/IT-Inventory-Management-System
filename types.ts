@@ -30,6 +30,7 @@ export interface ServerInfoEntry {
   storage: string;
   raid: string;
   status: 'Online' | 'Offline' | 'Maintenance';
+  department?: string;
   customFields?: Record<string, string>;
 }
 

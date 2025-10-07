@@ -9,11 +9,14 @@ import { exportToCSV } from '../utils/export';
 import { DetailModal } from '../components/DetailModal';
 import { useDebounce } from '../hooks/useDebounce';
 import { ImportModal } from '../components/ImportModal';
+import { useSort } from '../hooks/useSort';
+import { SortableHeader } from '../components/SortableHeader';
 
 const emptyFormState: Omit<ServerInfoEntry, 'id'> = {
     serverID: '',
     brand: '',
     model: '',
+    department: '',
     cpu: '',
     totalCores: 0,
     ram: '',
@@ -127,14 +130,17 @@ export const ServerInfo: React.FC = () => {
                 server.ram,
                 server.storage,
                 server.raid,
+                server.department,
             ].join(' ').toLowerCase();
 
             return searchWords.every(word => searchableString.includes(word));
         });
     }, [servers, debouncedSearchTerm, brandFilter, statusFilter]);
 
+    const { sortedItems: sortedServers, requestSort, sortConfig } = useSort<ServerInfoEntry>(filteredServers, { key: 'serverID', direction: 'ascending' });
+
     const handleExport = () => {
-        exportToCSV(filteredServers, 'server-info');
+        exportToCSV(sortedServers, 'server-info');
     };
 
     const handleImportServers = (data: Partial<ServerInfoEntry>[]): { success: boolean, message: string } => {
@@ -233,18 +239,20 @@ export const ServerInfo: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Server ID</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RAM</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <SortableHeader<ServerInfoEntry> label="Server ID" sortKey="serverID" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<ServerInfoEntry> label="Brand" sortKey="brand" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<ServerInfoEntry> label="Department" sortKey="department" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<ServerInfoEntry> label="RAM" sortKey="ram" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<ServerInfoEntry> label="Status" sortKey="status" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredServers.map((server) => (
+                            {sortedServers.map((server) => (
                                 <tr key={server.id} onClick={() => handleViewDetails(server)} className="hover:bg-gray-50 cursor-pointer">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{server.serverID}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{server.brand}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{server.department}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{server.ram}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(server.status)}`}>
@@ -259,7 +267,7 @@ export const ServerInfo: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
-                    {filteredServers.length === 0 && (
+                    {sortedServers.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                             No servers found matching your search.
                         </div>
@@ -272,6 +280,7 @@ export const ServerInfo: React.FC = () => {
                     <input type="text" name="serverID" value={formData.serverID} onChange={handleChange} placeholder="Server ID" className="p-2 border rounded" />
                     <input type="text" name="brand" value={formData.brand} onChange={handleChange} placeholder="Brand" className="p-2 border rounded" />
                     <input type="text" name="model" value={formData.model} onChange={handleChange} placeholder="Model" className="p-2 border rounded" />
+                    <input type="text" name="department" value={formData.department} onChange={handleChange} placeholder="Department" className="p-2 border rounded" />
                     <input type="text" name="cpu" value={formData.cpu} onChange={handleChange} placeholder="CPU" className="p-2 border rounded" />
                     <input type="number" name="totalCores" value={formData.totalCores} onChange={handleChange} placeholder="Total Cores" className="p-2 border rounded" />
                     <input type="text" name="ram" value={formData.ram} onChange={handleChange} placeholder="RAM" className="p-2 border rounded" />
@@ -328,8 +337,8 @@ export const ServerInfo: React.FC = () => {
                 onClose={() => setIsImportModalOpen(false)}
                 onImport={handleImportServers}
                 assetName="Servers"
-                templateHeaders={['serverID', 'brand', 'model', 'cpu', 'totalCores', 'ram', 'storage', 'raid', 'status']}
-                exampleRow={['192.168.150.130', 'DELL', 'PowerEdge R740', 'Intel Xeon Gold', '32', '128 GB', '4TB x 4', 'RAID10', 'Online']}
+                templateHeaders={['serverID', 'brand', 'model', 'department', 'cpu', 'totalCores', 'ram', 'storage', 'raid', 'status']}
+                exampleRow={['192.168.150.130', 'DELL', 'PowerEdge R740', 'IT DC', 'Intel Xeon Gold', '32', '128 GB', '4TB x 4', 'RAID10', 'Online']}
             />
 
             <DetailModal 

@@ -8,6 +8,8 @@ import { DownloadIcon } from '../components/Icons';
 import { exportToCSV } from '../utils/export';
 import { DetailModal } from '../components/DetailModal';
 import { useDebounce } from '../hooks/useDebounce';
+import { useSort } from '../hooks/useSort';
+import { SortableHeader } from '../components/SortableHeader';
 
 const emptyFormState: Omit<PeripheralLogEntry, 'id'> = {
     productName: '',
@@ -142,8 +144,10 @@ export const KeyboardLog: React.FC = () => {
         });
     }, [logs, debouncedSearchTerm, startDate, endDate]);
 
+    const { sortedItems: sortedLogs, requestSort, sortConfig } = useSort<PeripheralLogEntry>(filteredLogs, { key: 'date', direction: 'descending' });
+
     const handleExport = () => {
-        exportToCSV(filteredLogs, 'keyboard-service-logs');
+        exportToCSV(sortedLogs, 'keyboard-service-logs');
     };
 
     return (
@@ -199,17 +203,17 @@ export const KeyboardLog: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serial Number</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Serviced By</th>
+                                <SortableHeader<PeripheralLogEntry> label="Product Name" sortKey="productName" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<PeripheralLogEntry> label="Serial Number" sortKey="serialNumber" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<PeripheralLogEntry> label="Department" sortKey="department" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<PeripheralLogEntry> label="User" sortKey="pcUsername" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<PeripheralLogEntry> label="Date" sortKey="date" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
+                                <SortableHeader<PeripheralLogEntry> label="Serviced By" sortKey="servicedBy" sortConfig={sortConfig} requestSort={requestSort} className="text-left" />
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredLogs.map((log) => (
+                            {sortedLogs.map((log) => (
                                 <tr key={log.id} onClick={() => handleViewDetails(log)} className="hover:bg-gray-50 cursor-pointer">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{log.productName}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.serialNumber}</td>
@@ -225,7 +229,7 @@ export const KeyboardLog: React.FC = () => {
                             ))}
                         </tbody>
                     </table>
-                     {filteredLogs.length === 0 && (
+                     {sortedLogs.length === 0 && (
                         <div className="text-center py-8 text-gray-500">
                             No logs found matching your criteria.
                         </div>

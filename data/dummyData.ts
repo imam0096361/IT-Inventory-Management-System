@@ -52,12 +52,12 @@ export const departmentSummaryData: DepartmentAssetSummary[] = [
 ];
 
 export const serverInfoData: ServerInfoEntry[] = [
-  { id: 1, serverID: '192.168.150.116', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Online' },
-  { id: 2, serverID: '172.17.150.117', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Online' },
-  { id: 3, serverID: '192.168.150.118', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Maintenance' },
-  { id: 4, serverID: '192.168.150.119', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Online' },
-  { id: 5, serverID: '192.168.150.120', brand: 'HP', model: 'HP APOLLO 4200 G9', cpu: 'Intel Xeon E5-2620 v4 @ 2.10GHz', totalCores: 32, ram: '256 GB', storage: '1.8TB*10, 256*4', raid: 'RAID10', status: 'Offline' },
-  { id: 6, serverID: '192.168.150.121', brand: 'ASUSTOR', model: 'ASUSTOR AS6508T NAS', cpu: 'Intel Atom Quad-Core', totalCores: 4, ram: '32 GB', storage: '20TB*2', raid: 'RAID1', status: 'Online' },
+  { id: 1, serverID: '192.168.150.116', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Online', department: 'IT DC' },
+  { id: 2, serverID: '172.17.150.117', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Online', department: 'IT DC' },
+  { id: 3, serverID: '192.168.150.118', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Maintenance', department: 'IT DC' },
+  { id: 4, serverID: '192.168.150.119', brand: 'ERICSSON', model: 'ERICSSON ENU/B1', cpu: 'Intel Xeon E5-2695 v4 @ 2.10GHz', totalCores: 72, ram: '256 GB', storage: '960 GBx3', raid: 'RAID5', status: 'Online', department: 'IT DC' },
+  { id: 5, serverID: '192.168.150.120', brand: 'HP', model: 'HP APOLLO 4200 G9', cpu: 'Intel Xeon E5-2620 v4 @ 2.10GHz', totalCores: 32, ram: '256 GB', storage: '1.8TB*10, 256*4', raid: 'RAID10', status: 'Offline', department: 'IT DC' },
+  { id: 6, serverID: '192.168.150.121', brand: 'ASUSTOR', model: 'ASUSTOR AS6508T NAS', cpu: 'Intel Atom Quad-Core', totalCores: 4, ram: '32 GB', storage: '20TB*2', raid: 'RAID1', status: 'Online', department: 'IT DC' },
 ];
 
 export const laptopInfoData: LaptopInfoEntry[] = [
